@@ -14,15 +14,19 @@ extends Node3D
 @export var fov_walk: float = 77.5
 @export var fov_run: float = 90.0
 
-@onready var player_camera: Camera3D = %PlayerCamera
 @onready var bob_phase = bob_frequency * PI
 
 var t_bob := 0.0
 var bob_offset := Vector3.ZERO
 var player: PlayerCharacter
+var player_camera: Camera3D
 
 func _ready() -> void:
 	player = GameManager.player_character
+	_setup.call_deferred()
+
+func _setup() -> void:
+	player_camera = player.camera
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -40,7 +44,11 @@ func _process(_delta: float) -> void:
 	global_transform = player.head_anchor.get_global_transform_interpolated()
 
 func _physics_process(delta: float) -> void:
-	# Head bob
+	if player_camera:
+		player_camera.transform.origin = _calculate_bob_offset(delta)
+		_handle_fov(delta)
+
+func _calculate_bob_offset(delta: float) -> Vector3:
 	var speed := player.velocity.length()
 	var on_floor := player.is_on_floor()
 
@@ -58,10 +66,7 @@ func _physics_process(delta: float) -> void:
 		# Fully reset when airborne or almost stopped
 		t_bob = 0.0
 		bob_offset = bob_offset.lerp(Vector3.ZERO, delta * 10.0)
-
-	player_camera.transform.origin = bob_offset
-
-	_handle_fov(delta)
+	return bob_offset
 
 func _head_bob(time: float) -> Vector3:
 	return Vector3(
@@ -72,8 +77,10 @@ func _head_bob(time: float) -> Vector3:
 
 func _handle_fov(delta: float) -> void:
 	var fov_target: float = fov_base
-	if player.velocity.length() >= player.sprint_speed * 0.75:
+	var local_velocity = Vector3(player.velocity)
+	local_velocity.y = 0
+	if local_velocity.length() >= player.sprint_speed * 0.75:
 		fov_target = fov_run
-	elif player.velocity.length() >= player.walk_speed * 0.9:
+	elif local_velocity.length() >= player.walk_speed * 0.9:
 		fov_target = fov_walk
 	player_camera.fov = lerp(player_camera.fov, fov_target, delta * 8.0)
