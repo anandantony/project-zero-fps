@@ -4,6 +4,7 @@ extends Node
 var move := Vector2.ZERO
 var look := Vector2.ZERO
 var sprint := false
+var toggle_sprint := false
 
 @export var look_deadzone := 0.05
 @export var mouse_sensitivity := 0.006
