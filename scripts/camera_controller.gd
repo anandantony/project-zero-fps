@@ -24,6 +24,7 @@ func _ready() -> void:
 
 func _setup() -> void:
 	player_camera = player.camera
+	player_camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 
 func _unhandled_input(event: InputEvent) -> void:
 	#TODO: move this to UI manager
@@ -38,11 +39,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		InputRouter.handle_mouse_motion(event)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_handle_camera_input()
 	global_transform = player.head_anchor.get_global_transform_interpolated()
 
-func _physics_process(delta: float) -> void:
 	if player_camera:
 		player_camera.transform.origin = _calculate_bob_offset(delta)
 		_handle_fov(delta)
@@ -87,7 +87,7 @@ func _handle_fov(delta: float) -> void:
 	var fov_target: float = fov_base
 	var local_velocity = Vector3(player.velocity)
 	local_velocity.y = 0
-	if local_velocity.length() >= player.sprint_speed * 0.75:
+	if local_velocity.length() > player.sprint_speed * player.sprint_strafe_multiplier:
 		fov_target = fov_run
 	elif local_velocity.length() >= player.walk_speed * 0.9:
 		fov_target = fov_walk
