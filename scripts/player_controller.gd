@@ -5,7 +5,6 @@ extends CharacterBody3D
 @export var walk_speed := 6.0
 @export var sprint_speed := 8.5
 @export var jump_velocity := 7.0
-@export var auto_b_hop := true
 
 # Layer Mask Refs
 const DEFAULT_LAYER = 1
@@ -42,11 +41,11 @@ func _handle_ground_physics(delta: float) -> void:
 		self.velocity.z = lerp(self.velocity.z, wish_direction.z * get_move_speed(), delta * 7.0)
 
 func _physics_process(delta: float) -> void:
-	var input_dir = Input.get_vector("left", "right", "down", "up").normalized()
+	var input_dir = InputRouter.move
 	wish_direction = self.global_transform.basis * Vector3(input_dir.x, 0.0, -input_dir.y)
 	
 	if is_on_floor():
-		if Input.is_action_just_pressed("jump"):
+		if InputRouter.jump_pressed:
 			self.velocity.y = jump_velocity
 		_handle_ground_physics(delta)
 	else:
@@ -58,4 +57,4 @@ func _process(_delta: float) -> void:
 	pass
 
 func get_move_speed() -> float:
-	return sprint_speed if Input.is_action_pressed("sprint") else walk_speed
+	return sprint_speed if InputRouter.sprint else walk_speed
