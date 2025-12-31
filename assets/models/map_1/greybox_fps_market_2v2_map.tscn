@@ -1,0 +1,5 @@
+[gd_scene load_steps=2 format=3 uid="uid://cqspjr7lmh1wo"]
+
+[ext_resource type="PackedScene" uid="uid://bifo3r7vfgb6x" path="res://assets/models/map_1/greybox_fps_market_2v2_map.glb" id="1_nr5na"]
+
+[node name="Sketchfab_Scene" instance=ExtResource("1_nr5na")]
