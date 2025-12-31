@@ -7,10 +7,18 @@ extends Node3D
 @export_group("Bob Settings", "bob")
 @export var bob_frequency: float = 2.0
 @export var bob_amplitude: float = 0.08
+@export var bob_strafe_multiplier: float = 0.6
+
+@export_group("FOV Settings", "fov")
+@export var fov_base: float = 75.0
+@export var fov_walk: float = 77.5
+@export var fov_run: float = 90.0
 
 @onready var player_camera: Camera3D = %PlayerCamera
+@onready var bob_phase = bob_frequency * PI
 
-var t_bob: float = 0.0
+var t_bob := 0.0
+var bob_offset := Vector3.ZERO
 var player: PlayerCharacter
 
 func _ready() -> void:
@@ -33,11 +41,39 @@ func _process(_delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	# Head bob
-	t_bob += delta * player.velocity.length() * float(player.is_on_floor())
-	player_camera.transform.origin = _head_bob(t_bob)
+	var speed := player.velocity.length()
+	var on_floor := player.is_on_floor()
+
+	# Start fading bob when speed drops below this
+	var forward_speed := player.velocity.dot(-player.global_transform.basis.z)
+	var strafe_speed := player.velocity.dot(-player.global_transform.basis.x)
+	var movement_speed: float = abs(forward_speed) + abs(strafe_speed) * bob_strafe_multiplier
+	var bob_strength: float = clamp(movement_speed / player.walk_speed, 0.0, player.sprint_speed / player.walk_speed)
+
+	if on_floor and bob_strength > 0.01:
+		t_bob += delta * speed
+		var target_offset := _head_bob(t_bob) * bob_strength
+		bob_offset = bob_offset.lerp(target_offset, delta * 10.0)
+	else:
+		# Fully reset when airborne or almost stopped
+		t_bob = 0.0
+		bob_offset = bob_offset.lerp(Vector3.ZERO, delta * 10.0)
+
+	player_camera.transform.origin = bob_offset
+
+	_handle_fov(delta)
 
 func _head_bob(time: float) -> Vector3:
-	var pos = Vector3.ZERO
-	pos.y = sin(time * bob_frequency) * bob_amplitude
-	pos.x = cos(time * bob_frequency / 2) * bob_amplitude
-	return pos
+	return Vector3(
+		cos(time * bob_frequency * 0.5) * bob_amplitude,
+		sin(time * bob_frequency) * bob_amplitude,
+		0.0
+	)
+
+func _handle_fov(delta: float) -> void:
+	var fov_target: float = fov_base
+	if player.velocity.length() >= player.sprint_speed * 0.75:
+		fov_target = fov_run
+	elif player.velocity.length() >= player.walk_speed * 0.9:
+		fov_target = fov_walk
+	player_camera.fov = lerp(player_camera.fov, fov_target, delta * 8.0)

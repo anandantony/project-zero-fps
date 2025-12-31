@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://bqe68omr6d178"]
+[gd_scene load_steps=18 format=3 uid="uid://bqe68omr6d178"]
 
 [ext_resource type="PackedScene" uid="uid://cqspjr7lmh1wo" path="res://assets/models/map_1/greybox_fps_market_2v2_map.tscn" id="1_0wc5l"]
 [ext_resource type="PackedScene" uid="uid://d2jp3gvr7q6mr" path="res://prefabs/gameplay/spawn_point.tscn" id="2_0wc5l"]
@@ -16,6 +16,12 @@ uv1_offset = Vector3(0.5, 0.5, 0.5)
 uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_13hg8"]
+resource_local_to_scene = true
+albedo_texture = ExtResource("6_s3t84")
+uv1_offset = Vector3(0.5, 0.5, 0.5)
+uv1_triplanar = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_w23d6"]
 resource_local_to_scene = true
 albedo_texture = ExtResource("6_s3t84")
 uv1_offset = Vector3(0.5, 0.5, 0.5)
@@ -46,6 +52,12 @@ uv1_offset = Vector3(0.5, 0.5, 0.5)
 uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_u1bw3"]
+resource_local_to_scene = true
+albedo_texture = ExtResource("8_w8gs6")
+uv1_offset = Vector3(0.5, 0.5, 0.5)
+uv1_triplanar = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_iw4ep"]
 resource_local_to_scene = true
 albedo_texture = ExtResource("8_w8gs6")
 uv1_offset = Vector3(0.5, 0.5, 0.5)
@@ -82,7 +94,7 @@ block_color = 3
 [node name="ProtoCSGBox3D9" parent="." instance=ExtResource("4_ovcgl")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.375263, 1.4022102, 6.284566)
 size = Vector3(0.986084, 1.2022705, 1.0317993)
-material = SubResource("StandardMaterial3D_13hg8")
+material = SubResource("StandardMaterial3D_w23d6")
 block_color = 3
 
 [node name="ProtoCSGBox3D3" parent="." instance=ExtResource("4_ovcgl")]
@@ -120,6 +132,6 @@ block_style = 2
 [node name="ProtoCSGBox3D8" parent="." instance=ExtResource("4_ovcgl")]
 transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -0.8194362, 2.471994, 6.903878)
 size = Vector3(0.2906494, 3.0602722, 7.640625)
-material = SubResource("StandardMaterial3D_u1bw3")
+material = SubResource("StandardMaterial3D_iw4ep")
 block_color = 1
 block_style = 2

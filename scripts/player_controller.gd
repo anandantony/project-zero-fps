@@ -30,12 +30,16 @@ func _ready() -> void:
 
 func _handle_air_physics(delta: float) -> void:
 	self.velocity.y -= gravity * delta
-	self.velocity.x = lerp(self.velocity.x, wish_direction.x * get_move_speed(), delta * 2.0)
-	self.velocity.z = lerp(self.velocity.z, wish_direction.z * get_move_speed(), delta * 2.0)
+	self.velocity.x = lerp(self.velocity.x, wish_direction.x * walk_speed, delta * 3.0)
+	self.velocity.z = lerp(self.velocity.z, wish_direction.z * walk_speed, delta * 3.0)
 
-func _handle_ground_physics(_delta: float) -> void:
-	self.velocity.x = wish_direction.x * get_move_speed()
-	self.velocity.z = wish_direction.z * get_move_speed()
+func _handle_ground_physics(delta: float) -> void:
+	if (wish_direction.length() > 0):
+		self.velocity.x = wish_direction.x * get_move_speed()
+		self.velocity.z = wish_direction.z * get_move_speed()
+	else:
+		self.velocity.x = lerp(self.velocity.x, wish_direction.x * get_move_speed(), delta * 7.0)
+		self.velocity.z = lerp(self.velocity.z, wish_direction.z * get_move_speed(), delta * 7.0)
 
 func _physics_process(delta: float) -> void:
 	var input_dir = Input.get_vector("left", "right", "down", "up").normalized()
