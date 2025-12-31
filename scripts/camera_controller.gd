@@ -58,17 +58,16 @@ func _handle_camera_input() -> void:
 	)
 
 func _calculate_bob_offset(delta: float) -> Vector3:
-	var speed := player.velocity.length()
 	var on_floor := player.is_on_floor()
 
 	# Start fading bob when speed drops below this
 	var forward_speed := player.velocity.dot(-player.global_transform.basis.z)
-	var strafe_speed := player.velocity.dot(-player.global_transform.basis.x)
+	var strafe_speed := player.velocity.dot(player.global_transform.basis.x)
 	var movement_speed: float = abs(forward_speed) + abs(strafe_speed) * bob_strafe_multiplier
-	var bob_strength: float = clamp(movement_speed / player.walk_speed, 0.0, player.sprint_speed / player.walk_speed)
+	var bob_strength: float = clamp(movement_speed / player.walk_speed, 0.0, 1.0)
 
 	if on_floor and bob_strength > 0.01:
-		t_bob += delta * speed
+		t_bob += delta * movement_speed
 		var target_offset := _head_bob(t_bob) * bob_strength
 		bob_offset = bob_offset.lerp(target_offset, delta * 10.0)
 	else:

@@ -5,6 +5,7 @@ extends CharacterBody3D
 @export var walk_speed := 6.0
 @export var sprint_speed := 8.5
 @export var jump_velocity := 7.0
+@export var coyote_time := 0.12   # seconds
 
 # Layer Mask Refs
 const DEFAULT_LAYER = 1
@@ -15,7 +16,9 @@ const VIEW_MODEL_LAYER = 2
 @onready var camera: Camera3D = %PlayerCamera
 @onready var head_anchor: Marker3D = %HeadAnchor
 @onready var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8) * 1.75
-var wish_direction := Vector3.ZERO
+
+var _coyote_timer := 0.0
+var _wish_direction := Vector3.ZERO
 
 func _init() -> void:
 	GameManager.player_character = self
@@ -29,26 +32,30 @@ func _ready() -> void:
 
 func _handle_air_physics(delta: float) -> void:
 	self.velocity.y -= gravity * delta
-	self.velocity.x = lerp(self.velocity.x, wish_direction.x * walk_speed, delta * 3.0)
-	self.velocity.z = lerp(self.velocity.z, wish_direction.z * walk_speed, delta * 3.0)
+	self.velocity.x = lerp(self.velocity.x, _wish_direction.x * get_move_speed(), delta * 3.0)
+	self.velocity.z = lerp(self.velocity.z, _wish_direction.z * get_move_speed(), delta * 3.0)
 
 func _handle_ground_physics(delta: float) -> void:
-	if (wish_direction.length() > 0):
-		self.velocity.x = wish_direction.x * get_move_speed()
-		self.velocity.z = wish_direction.z * get_move_speed()
+	if (_wish_direction.length() > 0):
+		self.velocity.x = _wish_direction.x * get_move_speed()
+		self.velocity.z = _wish_direction.z * get_move_speed()
 	else:
-		self.velocity.x = lerp(self.velocity.x, wish_direction.x * get_move_speed(), delta * 7.0)
-		self.velocity.z = lerp(self.velocity.z, wish_direction.z * get_move_speed(), delta * 7.0)
+		self.velocity.x = lerp(self.velocity.x, _wish_direction.x * get_move_speed(), delta * 7.0)
+		self.velocity.z = lerp(self.velocity.z, _wish_direction.z * get_move_speed(), delta * 7.0)
 
 func _physics_process(delta: float) -> void:
 	var input_dir = InputRouter.move
-	wish_direction = self.global_transform.basis * Vector3(input_dir.x, 0.0, -input_dir.y)
+	_wish_direction = self.global_transform.basis * Vector3(input_dir.x, 0.0, -input_dir.y)
 	
 	if is_on_floor():
-		if InputRouter.jump_pressed:
+		_coyote_timer = coyote_time
+		if InputRouter.wants_to_jump() and _coyote_timer > 0.0:
 			self.velocity.y = jump_velocity
+			_coyote_timer = 0.0
+			InputRouter.consume_jump()
 		_handle_ground_physics(delta)
 	else:
+		_coyote_timer -= delta
 		_handle_air_physics(delta)
 	
 	move_and_slide()
