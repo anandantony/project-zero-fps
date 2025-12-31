@@ -1,70 +1,91 @@
-# Project 0 — Zero FPS 🔫
+# Project Zero FPS 🎯
 
-**Project 0** is a lightweight Godot 4.5 first-person shooter prototype focused on fast iteration, modular gameplay components, and simple arena-style maps. This repository contains scenes, scripts, and assets to run and extend a basic FPS experience.
-
----
-
-## ✅ Quick start
-
-**Requirements**
-- Godot Engine 4.5 (or compatible 4.x builds)
-- Optional: Godot export templates to build standalone binaries
-
-Run locally:
-1. Open the project folder in Godot (open `project.godot`).
-2. Press **Play** (F5) to run the current main scene or open `maps/training/dm_map_1.tscn` and run it.
-
-> **Tip:** Autoloads `GameManager` and `InputRouter` are configured in `project.godot` for quick iteration.
+A minimal, modular first-person controller and small FPS project built with Godot Engine (4.5). This repository contains a playable prototype with input mapping, camera and player controllers, a spawn system, simple AI/objects, and useful editor prefabs and addons to accelerate FPS development.
 
 ---
 
-## 🎮 Gameplay & Controls
+## Quick demo ✅
 
-- Move: **W A S D / Gamepad left stick**
-- Jump: **Space / Gamepad face down**
-- Sprint: **Shift / Gamepad left stick press**
-- Look: **Mouse / Gamepad right stick**
+- Open this project in Godot **4.5** and press Play (F5) to run the current main scene.
 
-The input map lives in `project.godot` and can be modified via Project Settings → Input Map.
+> NOTE: The project uses the **Jolt Physics** backend and the included `proto-csgs` addon for quick geometry prefabs.
 
 ---
 
-## 🔧 Project structure (high-level)
+## Features ⚙️
 
-- `maps/` — level scenes (e.g., `maps/training/dm_map_1.tscn`)
-- `assets/models/` — 3D models and GLTF/GLB imports
-- `prefabs/` — reusable scene assets (e.g., `world_env.tres`)
-- `characters/` — `player_controller.tscn`
-- `scripts/` — core GDScript files (e.g., `player_controller.gd`, `game_manager.gd`)
-- `addons/proto-csgs/` — CSG helper addon used for quick prototyping
-
----
-
-## 🛠 Development notes
-
-- Use the included `scripts/` as starting points for player movement, spawners (`spawner.tscn`), and game state (autoload `GameManager`).
-- Keep physics and rendering settings in `project.godot` in sync when editing core behavior.
+- First-person movement (walk, sprint, jump) and mouse/gamepad look
+- Camera controller with smooth motion and interpolation
+- Spawn system for reusable spawn points
+- Modular `scripts/` and `prefabs/` for rapid prototyping
+- Input mapped for keyboard + mouse and gamepad
 
 ---
 
-## Contributing
+## Requirements 🧩
 
-Contributions are welcome. Recommended workflow:
-1. Create a feature branch: `git checkout -b feat/my-feature`
-2. Add scenes / scripts and test in the editor
-3. Open a PR with a short description of changes
-
-Please follow simple, self-explanatory commits and include small, focused PRs.
+- Godot Engine **4.5** (project configured for 4.5 features)
+- Export templates for your target platform (if exporting builds)
 
 ---
 
-## License
+## Getting started 🔧
 
-This project is distributed under the **GNU General Public License v3.0 (GPL-3.0)**. See `LICENSE` for details.
+1. Clone the repo:
+
+   ```bash
+   git clone https://github.com/anandantony/project-zero-fps.git
+   cd project-zero-fps
+   ```
+
+2. Open the folder in Godot 4.5.
+3. Run the project (F5) or open a scene from `prefabs/` or `maps/` to test specific levels.
+
+Tips:
+- Autoloads: `GameManager` and `InputRouter` are defined in the project settings (see `project.godot`).
+- If you add new scenes or scripts, save them under `prefabs/`, `maps/`, or `scripts/` to keep structure consistent.
 
 ---
 
-## Acknowledgements
+## Controls 🎮
 
-- Built using Godot Engine 4.5
-- proto-csgs for rapid prototyping
+- Move: **W / A / S / D**
+- Jump: **Space**
+- Sprint: **Shift**
+- Look: **Mouse**
+- Gamepad: left stick to move, right stick to look, bottom face button to jump, left stick press for sprint
+
+---
+
+## Project structure 🔍
+
+- `addons/` — third-party or custom editor tools (includes `proto-csgs`)
+- `assets/` — static content used in scenes
+- `maps/` — example levels (e.g., `training/dm_map_1.tscn`)
+- `prefabs/` — reusable scene assets (spawn points, world env, characters)
+- `scripts/` — gameplay scripts (player_controller, camera_controller, game_manager, spawner, etc.)
+
+---
+
+## Contributing 🤝
+
+Contributions are welcome! Please:
+- Open an issue to discuss bigger changes
+- Create focused pull requests with a clear description
+- Follow existing coding style in `scripts/`
+
+---
+
+## License & Credits 📄
+
+This project is available under the terms of the repository `LICENSE` file.
+
+- `proto-csgs` addon included under its own `LICENSE.txt` (see `addons/proto-csgs/`)
+
+---
+
+## Contact / Notes ✉️
+
+If you have questions or want to collaborate, open an issue or reach out in the repo.
+
+Enjoy building! 🚀
