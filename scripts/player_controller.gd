@@ -9,6 +9,17 @@ enum MoveState {
 	AIR
 }
 
+const CEILING_RAY_OFFSETS := [
+	Vector3.ZERO,
+	Vector3(0.25, 0, 0),
+	Vector3(-0.25, 0, 0),
+	Vector3(0, 0, 0.25),
+	Vector3(0, 0, -0.25),
+]
+const HEIGHT_EPSILON := 0.03
+const CEILING_CACHE_TIME := 0.1
+const SLIDE_GROUND_GRACE := 0.12
+
 @export_group("Movement")
 @export var minimum_air_control_speed := 2.0
 @export var walk_speed := 6.0
@@ -31,6 +42,8 @@ enum MoveState {
 @export var slide_friction := 8.0
 @export var slide_duration := 1.2
 @export var slide_slope_boost := 18.0
+@export var slide_max_angle := 40.0
+@export var slide_stick_force := 35.0
 
 # Layer Mask Refs
 const DEFAULT_LAYER = 1
@@ -43,6 +56,8 @@ const VIEW_MODEL_LAYER = 2
 @onready var collider: CollisionShape3D = %Collider
 @onready var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8) * 1.75
 @onready var _eye_height_local := head_anchor.position.y
+@onready var ground_check: RayCast3D = $GroundCheck
+@onready var _max_slide_dot := cos(deg_to_rad(slide_max_angle))
 
 # Debug
 @onready var debug_label: Label = %DebugLabel
@@ -57,7 +72,9 @@ var _move_input_world := Vector3.ZERO
 var _air_speed_cap := 0.0
 var _slide_velocity := Vector3.ZERO
 var _slide_timer := 0.0
-var _lock_ground := false
+var _slide_ground_timer := 0.0
+var _cached_max_height := stand_height
+var _ceiling_cache_timer := 0.0
 
 func _init() -> void:
 	GameManager.player_character = self
@@ -121,7 +138,16 @@ func _handle_slide_physics(delta: float) -> void:
 	self.velocity.y -= gravity * delta
 
 	var floor_normal := get_floor_normal()
+	
+	_slide_ground_timer -= delta
 
+	if not _is_grounded():
+		# Ignore brief floor loss during slide start / capsule resize
+		if _slide_ground_timer <= 0.0 and velocity.y < -1.5:
+			previous_ground_state = MoveState.SLIDE
+			move_state = MoveState.AIR
+		return
+	
 	# Gravity projected onto slope
 	var slope_gravity := Vector3.DOWN - floor_normal * Vector3.DOWN.dot(floor_normal)
 
@@ -130,10 +156,20 @@ func _handle_slide_physics(delta: float) -> void:
 
 		var slide_dir := _slide_velocity.normalized()
 		var alignment := slope_gravity.dot(slide_dir)
-
-		# Only accelerate downhill
+		if _is_grounded():
+			var n := get_floor_normal()
+			var downhill := slope_gravity.dot(slide_dir)
+			if downhill > 0.0:
+				self.velocity += -n * slide_stick_force * downhill * delta
 		if alignment > 0.0:
+			# Downhill acceleration
 			_slide_velocity += slope_gravity * slide_slope_boost * alignment * delta
+		elif alignment < 0.0:
+			# Uphill braking (stronger than normal friction)
+			_slide_velocity = _slide_velocity.move_toward(
+				Vector3.ZERO,
+				slide_friction * (1.0 + -alignment * 2.0) * delta
+			)
 
 	# Friction
 	_slide_velocity = _slide_velocity.move_toward(Vector3.ZERO, slide_friction * delta)
@@ -165,6 +201,7 @@ func _physics_process(delta: float) -> void:
 	_handle_move_input()
 	_update_move_state()
 	_update_coyote_timer(delta)
+	_update_ceiling_cache(delta)
 	_update_crouch_visuals(delta)
 
 	match move_state:
@@ -180,19 +217,11 @@ func _physics_process(delta: float) -> void:
 			_handle_air_physics(delta)
 	
 	move_and_slide()
-	_lock_ground = false
 
 func _process(_delta: float) -> void:
 	_debug()
 
 func _update_move_state() -> void:
-	# AIR overrides locomotion, not posture
-	if not is_on_floor() and not _lock_ground:
-		if move_state != MoveState.AIR:
-			previous_ground_state = move_state
-		move_state = MoveState.AIR
-		return
-	
 	# SLIDE owns the state until it exits itself
 	if move_state == MoveState.SLIDE:
 		if InputRouter.wants_to_jump():
@@ -200,17 +229,25 @@ func _update_move_state() -> void:
 			return
 		return
 	
+	# AIR overrides locomotion, not posture
+	if not _is_grounded():
+		if move_state == MoveState.SLIDE:
+			return # slide decides when to exit
+		if move_state != MoveState.AIR:
+			previous_ground_state = move_state
+		move_state = MoveState.AIR
+		return
+	
 	# Grounded states
 	if wants_crouch:
-		var sprint_jump_to_slide = move_state == MoveState.AIR and previous_ground_state == MoveState.SPRINT
-		if move_state == MoveState.SPRINT or sprint_jump_to_slide:
+		if move_state == MoveState.SPRINT and _can_slide_on_floor():
 			_enter_slide()
 			return
-		if move_state == MoveState.SLIDE:
-			return
+
 		if move_state != MoveState.CROUCH:
 			previous_ground_state = move_state
 			InputRouter.on_crouch_started()
+
 		move_state = MoveState.CROUCH
 		return
 
@@ -238,10 +275,19 @@ func _handle_jump() -> void:
 	InputRouter.reset_crouch_if_toggled()
 	InputRouter.consume_jump()
 
+# make it forward raycast based
+func _can_slide_on_floor() -> bool:
+	if not _is_grounded():
+		return false
+
+	var n := get_floor_normal()
+	return n.dot(Vector3.UP) >= _max_slide_dot
+
 func _enter_slide() -> void:
+	previous_ground_state = MoveState.SPRINT
 	move_state = MoveState.SLIDE
 	_slide_timer = slide_duration
-	_lock_ground = true
+	_slide_ground_timer = SLIDE_GROUND_GRACE
 	
 	var horizontal := Vector3(velocity.x, 0, velocity.z)
 	var dir := horizontal.normalized()
@@ -250,66 +296,54 @@ func _enter_slide() -> void:
 
 	_slide_velocity = dir * max(horizontal.length(), slide_start_speed)
 
+func _update_ceiling_cache(delta: float) -> void:
+	_ceiling_cache_timer -= delta
+	if _ceiling_cache_timer > 0.0:
+		return
+
+	_ceiling_cache_timer = CEILING_CACHE_TIME
+	_cached_max_height = _get_max_stand_height()
+
 func _update_crouch_visuals(delta: float) -> void:
 	var shape := collider.shape as CapsuleShape3D
 
-	# Desired capsule height (intent)
-	var desired_height := stand_height
-	if wants_crouch:
-		desired_height = crouch_height
+	var desired_height := crouch_height if wants_crouch else stand_height
 
-	# Clamp based on ceiling
-	var max_allowed_height := _get_max_stand_height()
-	var final_height: float = min(desired_height, max_allowed_height)
-
-	# Smooth capsule resize
 	var old_height := shape.height
-	var new_height: float = lerp(old_height, final_height, delta * crouch_transition_speed)
+	var max_growth := _cached_max_height
+
+	var target_height: float = min(desired_height, max_growth)
+	
+	if wants_crouch:
+		# Only allow shrinking
+		target_height = min(target_height, old_height)
+	else:
+		# Only allow growth
+		target_height = max(target_height, old_height)
+	
+	if abs(target_height - old_height) < HEIGHT_EPSILON:
+		target_height = old_height
+
+	# IMPORTANT: never overshoot available space
+	var new_height := move_toward(
+		old_height,
+		target_height,
+		delta * crouch_transition_speed
+	)
+
 	shape.height = new_height
 
-	var height_delta := old_height - new_height
-	if abs(height_delta) > 0.001:
-		# Keep feet planted
-		global_position.y -= height_delta * 0.5
+	# Anchor bottom
+	var half_delta := (new_height - old_height) * 0.5
+	global_position.y -= half_delta
 
-	# Camera height derived from ACTUAL capsule height
-	var target_eye_y := _get_eye_height_for_capsule(shape.height)
-
-	var cam_pos := head_anchor.position
-	cam_pos.y = lerp(
-		cam_pos.y,
+	# Camera follows actual capsule
+	var target_eye_y := _get_eye_height_for_capsule(new_height)
+	head_anchor.position.y = lerp(
+		head_anchor.position.y,
 		target_eye_y,
 		delta * crouch_transition_speed
 	)
-	head_anchor.position = cam_pos
-
-func _get_max_stand_height() -> float:
-	var shape := collider.shape as CapsuleShape3D
-	var original_height := shape.height
-
-	# Try full stand first
-	shape.height = stand_height
-	if not test_move(global_transform, Vector3.UP * 0.01):
-		shape.height = original_height
-		return stand_height
-
-	# Binary search for max safe height
-	var low := crouch_height
-	var high := stand_height
-	var best := low
-
-	for i in 5:
-		var mid := (low + high) * 0.5
-		shape.height = mid
-
-		if test_move(global_transform, Vector3.UP * 0.01):
-			high = mid
-		else:
-			best = mid
-			low = mid
-
-	shape.height = original_height
-	return best
 
 func _get_eye_height_for_capsule(capsule_height: float) -> float:
 	var t := inverse_lerp(crouch_height, stand_height, capsule_height)
@@ -319,14 +353,85 @@ func _get_eye_height_for_capsule(capsule_height: float) -> float:
 		t
 	)
 
+func _get_max_stand_height() -> float:
+	var ray_limit := _raycast_ceiling_height()
+
+	# Fast path
+	if ray_limit >= stand_height and _can_grow_to_height(stand_height):
+		return stand_height
+
+	# Binary refine
+	var low := crouch_height
+	var high := ray_limit
+	var best := low
+
+	for i in 6:
+		var mid := (low + high) * 0.5
+		if _can_grow_to_height(mid):
+			best = mid
+			low = mid
+		else:
+			high = mid
+
+	return best
+
+func _can_grow_to_height(target_height: float) -> bool:
+	var current_height := (collider.shape as CapsuleShape3D).height
+	if target_height <= current_height:
+		return true
+
+	var delta := target_height - current_height
+	var motion := Vector3.UP * (delta * 0.5)
+
+	var collision := move_and_collide(motion, true)
+
+	if collision:
+		# Only block if it's a ceiling
+		if collision.get_normal().dot(Vector3.DOWN) > 0.6:
+			return false
+
+	return true
+
+func _raycast_ceiling_height() -> float:
+	var space := get_world_3d().direct_space_state
+	var origin := global_position
+
+	var best_height := stand_height
+
+	for offset in CEILING_RAY_OFFSETS:
+		var from: Vector3= origin + offset + Vector3.UP * crouch_height * 0.5
+		var to: Vector3 = origin + offset + Vector3.UP * stand_height
+
+		var query := PhysicsRayQueryParameters3D.create(from, to)
+		query.exclude = [self]
+		query.collision_mask = collision_mask
+
+		var hit := space.intersect_ray(query)
+
+		if hit:
+			var ceiling_distance: float = hit.position.y - origin.y
+			var allowed := ceiling_distance - 0.5
+			best_height = min(best_height, allowed)
+
+	return clamp(best_height, crouch_height, stand_height)
+
+func _is_grounded() -> bool:
+	return is_on_floor() or ground_check.is_colliding()
+
 #debug
 func _debug() -> void:
 	debug_label.text = "
 		state: %s
 		prev_ground: %s
 		on_floor: %s
+		ground_check: %s
+		head_anchor.position: %v
+		shape.height: %f
 	" % [
 		MoveState.keys()[move_state],
 		MoveState.keys()[previous_ground_state],
-		is_on_floor()
+		_is_grounded(),
+		ground_check.is_colliding(),
+		head_anchor.position,
+		collider.shape.height
 	]

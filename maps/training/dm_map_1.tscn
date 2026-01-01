@@ -1,4 +1,4 @@
-[gd_scene load_steps=54 format=3 uid="uid://bqe68omr6d178"]
+[gd_scene load_steps=53 format=3 uid="uid://bqe68omr6d178"]
 
 [ext_resource type="PackedScene" uid="uid://d2jp3gvr7q6mr" path="res://prefabs/gameplay/spawn_point.tscn" id="2_0wc5l"]
 [ext_resource type="Environment" uid="uid://cf7wtccr7s4f7" path="res://prefabs/world_env.tres" id="2_mxuqf"]
@@ -106,18 +106,6 @@ albedo_texture = ExtResource("6_s3t84")
 uv1_offset = Vector3(0.5, 0.5, 0.5)
 uv1_triplanar = true
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6wvmf"]
-resource_local_to_scene = true
-albedo_texture = ExtResource("6_s3t84")
-uv1_offset = Vector3(0.5, 0.5, 0.5)
-uv1_triplanar = true
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lnn3n"]
-resource_local_to_scene = true
-albedo_texture = ExtResource("6_s3t84")
-uv1_offset = Vector3(0.5, 0.5, 0.5)
-uv1_triplanar = true
-
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6nj17"]
 resource_local_to_scene = true
 albedo_texture = ExtResource("9_xs22q")
@@ -143,6 +131,12 @@ uv1_offset = Vector3(0.5, 0.5, 0.5)
 uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_uxrh7"]
+resource_local_to_scene = true
+albedo_texture = ExtResource("6_s3t84")
+uv1_offset = Vector3(0.5, 0.5, 0.5)
+uv1_triplanar = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lnn3n"]
 resource_local_to_scene = true
 albedo_texture = ExtResource("6_s3t84")
 uv1_offset = Vector3(0.5, 0.5, 0.5)
@@ -386,19 +380,6 @@ size = Vector3(2.0893555, 2.0825806, 3.0968018)
 material = SubResource("StandardMaterial3D_w8gs6")
 block_color = 3
 
-[node name="ProtoCSGBox3D28" parent="Map" instance=ExtResource("4_ovcgl")]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -21.568657, 2.0441165, 8.897307)
-size = Vector3(3.871643, 3.9728851, 5)
-material = SubResource("StandardMaterial3D_6wvmf")
-block_color = 3
-
-[node name="ProtoCSGBox3D29" parent="Map/ProtoCSGBox3D28" instance=ExtResource("4_ovcgl")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0261917, 1.7724638, 1.1835213)
-operation = 2
-size = Vector3(2.1812897, 2.7961407, 3.538086)
-material = SubResource("StandardMaterial3D_lnn3n")
-block_color = 3
-
 [node name="ProtoCSGPolygon3D" parent="Map" instance=ExtResource("8_j0u80")]
 transform = Transform3D(-4.371139e-08, 0, 2.9680076, 0, 1, 0, -1, 0, -1.2973572e-07, -20.978416, -4.7683716e-07, 4.951884)
 polygon = PackedVector2Array(-4, 0, -4, 4, 5, 0)
@@ -423,9 +404,23 @@ material = SubResource("StandardMaterial3D_rgfh2")
 block_color = 3
 
 [node name="ProtoCSGBox3D33" parent="Map" instance=ExtResource("4_ovcgl")]
-transform = Transform3D(-1, 0, 8.742278e-08, 0, 1, 0, -8.742278e-08, 0, -1, -11.0321455, 1.8966672, 8.85035)
-size = Vector3(16.160217, 4.238556, 3.791272)
+transform = Transform3D(-1, 0, 8.742278e-08, 0, 1, 0, -8.742278e-08, 0, -1, -13.952037, 1.8966672, 8.85035)
+size = Vector3(22, 4.238556, 3.791272)
 material = SubResource("StandardMaterial3D_uxrh7")
+block_color = 3
+
+[node name="ProtoCSGBox3D29" parent="Map/ProtoCSGBox3D33" instance=ExtResource("4_ovcgl")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 8.760073, 1.919913, 0.97923374)
+operation = 2
+size = Vector3(2.1812897, 2.7961407, 3.4580078)
+material = SubResource("StandardMaterial3D_lnn3n")
+block_color = 3
+
+[node name="ProtoCSGBox3D30" parent="Map/ProtoCSGBox3D33" instance=ExtResource("4_ovcgl")]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -6.9663754, -1.2695291, 0.9792352)
+operation = 2
+size = Vector3(2.1812897, 1.2832026, 3.4580078)
+material = SubResource("StandardMaterial3D_lnn3n")
 block_color = 3
 
 [node name="ProtoCSGBox3D4" parent="Map" instance=ExtResource("4_ovcgl")]
@@ -507,8 +502,8 @@ block_color = 1
 block_style = 2
 
 [node name="ProtoCSGBox3D23" parent="Map" instance=ExtResource("4_ovcgl")]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -11.95323, 6.4761667, 11.445449)
-size = Vector3(1.4065247, 13.205122, 23.97084)
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -11.95323, 6.4761667, 11.41793)
+size = Vector3(1.4615631, 13.205122, 23.97084)
 material = SubResource("StandardMaterial3D_ucuft")
 block_color = 1
 block_style = 2
@@ -561,8 +556,8 @@ block_color = 1
 block_style = 2
 
 [node name="ProtoCSGBox3D20" parent="Map" instance=ExtResource("4_ovcgl")]
-transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 12.07037, 3.1923575, 10.828409)
-size = Vector3(0.2906494, 6.796196, 23.875244)
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 12.019894, 3.1923575, 10.828409)
+size = Vector3(0.2906494, 6.796196, 23.976196)
 material = SubResource("StandardMaterial3D_u4ges")
 block_color = 1
 block_style = 2

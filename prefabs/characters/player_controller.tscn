@@ -15,6 +15,7 @@ albedo_color = Color(0, 0, 0, 1)
 
 [node name="PlayerCharacter" type="CharacterBody3D"]
 script = ExtResource("1_0gn2w")
+slide_max_angle = 20.0
 
 [node name="Collider" type="CollisionShape3D" parent="."]
 unique_name_in_owner = true
@@ -45,6 +46,10 @@ unique_name_in_owner = true
 [node name="HeadAnchor" type="Marker3D" parent="."]
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.79, 0)
+
+[node name="GroundCheck" type="RayCast3D" parent="."]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.81398976, 0)
 
 [node name="Control" type="Control" parent="."]
 layout_mode = 3
