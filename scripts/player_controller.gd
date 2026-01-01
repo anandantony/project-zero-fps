@@ -33,7 +33,7 @@ var move_state: MoveState = MoveState.GROUND
 var previous_ground_state: MoveState = MoveState.GROUND
 
 var _coyote_timer := 0.0
-var _wish_direction := Vector3.ZERO
+var _move_input_world := Vector3.ZERO
 var _air_speed_cap := 0.0
 
 func _init() -> void:
@@ -49,10 +49,13 @@ func _ready() -> void:
 func _handle_air_physics(delta: float) -> void:
 	self.velocity.y -= gravity * delta
 	
+	if _move_input_world.length() < 0.01:
+		return
+	
 	var horizontal := Vector3(self.velocity.x, 0, self.velocity.z)
 	
 	# Direction only (no speed)
-	var dir := _wish_direction.normalized()
+	var dir := _move_input_world.normalized()
 
 	# Lock air speed to takeoff speed
 	var target := dir * maxf(_air_speed_cap, minimum_air_control_speed)
@@ -63,7 +66,7 @@ func _handle_air_physics(delta: float) -> void:
 	self.velocity.z = horizontal.z
 
 func _handle_ground_physics(delta: float, move_speed: float) -> void:
-	if _wish_direction.length() == 0:
+	if _move_input_world.length() == 0:
 		self.velocity.x = lerp(self.velocity.x, 0.0, delta * 7.0)
 		self.velocity.z = lerp(self.velocity.z, 0.0, delta * 7.0)
 		return
@@ -72,8 +75,8 @@ func _handle_ground_physics(delta: float, move_speed: float) -> void:
 	var forward := -_basis.z
 	var right := _basis.x
 
-	var forward_amount := _wish_direction.dot(forward)
-	var strafe_amount := _wish_direction.dot(right)
+	var forward_amount := _move_input_world.dot(forward)
+	var strafe_amount := _move_input_world.dot(right)
 
 	var max_forward := move_speed
 	var max_strafe := move_speed
@@ -89,18 +92,15 @@ func _handle_ground_physics(delta: float, move_speed: float) -> void:
 	self.velocity.z = desired.z
 
 func _handle_ground_movement(delta: float, move_speed: float) -> void:
-	_coyote_timer = coyote_time
-
 	if InputRouter.wants_to_jump() and _coyote_timer > 0.0:
 		_handle_jump()
-		return
-
+		return # prevents ground movement this frame
 	_handle_ground_physics(delta, move_speed)
-
 
 func _physics_process(delta: float) -> void:
 	_handle_move_input()
 	_update_move_state()
+	_update_coyote_timer(delta)
 	
 	match move_state:
 		MoveState.GROUND:
@@ -108,7 +108,6 @@ func _physics_process(delta: float) -> void:
 		MoveState.SPRINT:
 			_handle_ground_movement(delta, sprint_speed)
 		MoveState.AIR:
-			_coyote_timer -= delta
 			_handle_air_physics(delta)
 	
 	move_and_slide()
@@ -127,7 +126,7 @@ func _update_move_state() -> void:
 	# Determine desired grounded state
 	var next_ground_state: MoveState
 
-	if InputRouter.sprint and _wish_direction.length() > 0.1:
+	if InputRouter.sprint and _move_input_world.length() > 0.1:
 		next_ground_state = MoveState.SPRINT
 	else:
 		next_ground_state = MoveState.GROUND
@@ -138,22 +137,22 @@ func _update_move_state() -> void:
 
 	move_state = next_ground_state
 
+func _update_coyote_timer(delta: float) -> void:
+	if move_state == MoveState.AIR:
+		_coyote_timer -= delta
+	else:
+		_coyote_timer = coyote_time
 
 func _handle_move_input() -> void:
 	var input_dir = InputRouter.move
-	_wish_direction = self.global_transform.basis * Vector3(input_dir.x, 0.0, -input_dir.y)
+	_move_input_world = self.global_transform.basis * Vector3(input_dir.x, 0.0, -input_dir.y)
 
 func _handle_jump() -> void:
-	previous_ground_state = move_state  # capture intent
+	previous_ground_state = move_state # capture intent
 	self.velocity.y = jump_velocity
-	_enter_air_state()
-	InputRouter.consume_jump()
-
-
-func _enter_air_state() -> void:
-	move_state = MoveState.AIR
 	_air_speed_cap = Vector3(self.velocity.x, 0, self.velocity.z).length()
 	_coyote_timer = 0.0
+	InputRouter.consume_jump()
 
 #debug
 func _debug() -> void:
