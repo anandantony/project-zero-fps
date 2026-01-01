@@ -91,4 +91,5 @@ func _handle_fov(delta: float) -> void:
 		fov_target = fov_run
 	elif local_velocity.length() >= player.walk_speed * 0.9:
 		fov_target = fov_walk
-	player_camera.fov = lerp(player_camera.fov, fov_target, delta * 8.0)
+	var delta_multiplier = 2.0 if player.move_state == player.MoveState.SLIDE else 6.0
+	player_camera.fov = lerp(player_camera.fov, fov_target, delta * delta_multiplier)

@@ -5,6 +5,7 @@ enum MoveState {
 	GROUND,
 	SPRINT,
 	CROUCH,
+	SLIDE,
 	AIR
 }
 
@@ -23,6 +24,13 @@ enum MoveState {
 @export var eye_height_stand := 1.8
 @export var crouch_camera_offset := -0.6
 @export var crouch_transition_speed := 10.0
+
+@export_group("Slide", "slide")
+@export var slide_start_speed := 10.0
+@export var slide_min_speed := 4.0
+@export var slide_friction := 8.0
+@export var slide_duration := 3
+@export var slide_slope_boost := 18.0
 
 # Layer Mask Refs
 const DEFAULT_LAYER = 1
@@ -47,6 +55,8 @@ var wants_crouch := false
 var _coyote_timer := 0.0
 var _move_input_world := Vector3.ZERO
 var _air_speed_cap := 0.0
+var _slide_velocity := Vector3.ZERO
+var _slide_timer := 0.0
 
 func _init() -> void:
 	GameManager.player_character = self
@@ -103,6 +113,42 @@ func _handle_ground_physics(delta: float, move_speed: float) -> void:
 	self.velocity.x = desired.x
 	self.velocity.z = desired.z
 
+func _handle_slide_physics(delta: float) -> void:
+	_slide_timer -= delta
+
+	# Gravity still applies
+	self.velocity.y -= gravity * delta
+
+	# Slope acceleration
+	var floor_normal := get_floor_normal()
+	var downhill := floor_normal.cross(Vector3.UP).cross(floor_normal).normalized()
+
+	var slope_factor: float = clamp(downhill.dot(_slide_velocity.normalized()), -1.0, 1.0)
+	_slide_velocity += downhill * slope_factor * slide_slope_boost * delta
+
+	# Friction
+	_slide_velocity = _slide_velocity.move_toward(Vector3.ZERO, slide_friction * delta)
+
+	self.velocity.x = _slide_velocity.x
+	self.velocity.z = _slide_velocity.z
+
+	# Exit conditions
+	if _slide_timer <= 0.0:
+		_exit_slide()
+	elif _slide_velocity.length() < slide_min_speed:
+		_exit_slide()
+
+func _exit_slide() -> void:
+	velocity.x = _slide_velocity.x
+	velocity.z = _slide_velocity.z
+
+	if wants_crouch:
+		move_state = MoveState.CROUCH
+	elif InputRouter.sprint and _move_input_world.length() > 0.1:
+		move_state = MoveState.SPRINT
+	else:
+		move_state = MoveState.GROUND
+
 func _handle_ground_movement(delta: float, move_speed: float) -> void:
 	if InputRouter.wants_to_jump() and _coyote_timer > 0.0:
 		_handle_jump()
@@ -120,6 +166,8 @@ func _physics_process(delta: float) -> void:
 			_handle_ground_movement(delta, walk_speed)
 		MoveState.SPRINT:
 			_handle_ground_movement(delta, sprint_speed)
+		MoveState.SLIDE:
+			_handle_slide_physics(delta)
 		MoveState.CROUCH:
 			_handle_ground_movement(delta, crouch_speed)
 		MoveState.AIR:
@@ -137,9 +185,20 @@ func _update_move_state() -> void:
 			previous_ground_state = move_state
 		move_state = MoveState.AIR
 		return
-
+	
+	# SLIDE owns the state until it exits itself
+	if move_state == MoveState.SLIDE:
+		if InputRouter.wants_to_jump():
+			_handle_jump()
+			return
+		return
+	
 	# Grounded states
 	if wants_crouch:
+		var sprint_jump_to_slide = move_state == MoveState.AIR and previous_ground_state == MoveState.SPRINT
+		if move_state == MoveState.SPRINT or sprint_jump_to_slide:
+			_enter_slide()
+			return
 		if move_state != MoveState.CROUCH:
 			previous_ground_state = move_state
 			InputRouter.on_crouch_started()
@@ -169,6 +228,17 @@ func _handle_jump() -> void:
 	_coyote_timer = 0.0
 	InputRouter.reset_crouch_if_toggled()
 	InputRouter.consume_jump()
+
+func _enter_slide() -> void:
+	move_state = MoveState.SLIDE
+	_slide_timer = slide_duration
+
+	var horizontal := Vector3(velocity.x, 0, velocity.z)
+	var dir := horizontal.normalized()
+	if dir.length() < 0.1:
+		dir = -global_transform.basis.z
+
+	_slide_velocity = dir * max(horizontal.length(), slide_start_speed)
 
 func _update_crouch_visuals(delta: float) -> void:
 	var shape := collider.shape as CapsuleShape3D
