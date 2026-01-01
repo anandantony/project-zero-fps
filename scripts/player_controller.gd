@@ -29,7 +29,7 @@ enum MoveState {
 @export var slide_start_speed := 10.0
 @export var slide_min_speed := 4.0
 @export var slide_friction := 8.0
-@export var slide_duration := 3
+@export var slide_duration := 1.2
 @export var slide_slope_boost := 18.0
 
 # Layer Mask Refs
@@ -57,6 +57,7 @@ var _move_input_world := Vector3.ZERO
 var _air_speed_cap := 0.0
 var _slide_velocity := Vector3.ZERO
 var _slide_timer := 0.0
+var _lock_ground := false
 
 func _init() -> void:
 	GameManager.player_character = self
@@ -116,15 +117,23 @@ func _handle_ground_physics(delta: float, move_speed: float) -> void:
 func _handle_slide_physics(delta: float) -> void:
 	_slide_timer -= delta
 
-	# Gravity still applies
+	# Gravity
 	self.velocity.y -= gravity * delta
 
-	# Slope acceleration
 	var floor_normal := get_floor_normal()
-	var downhill := floor_normal.cross(Vector3.UP).cross(floor_normal).normalized()
 
-	var slope_factor: float = clamp(downhill.dot(_slide_velocity.normalized()), -1.0, 1.0)
-	_slide_velocity += downhill * slope_factor * slide_slope_boost * delta
+	# Gravity projected onto slope
+	var slope_gravity := Vector3.DOWN - floor_normal * Vector3.DOWN.dot(floor_normal)
+
+	if slope_gravity.length() > 0.001:
+		slope_gravity = slope_gravity.normalized()
+
+		var slide_dir := _slide_velocity.normalized()
+		var alignment := slope_gravity.dot(slide_dir)
+
+		# Only accelerate downhill
+		if alignment > 0.0:
+			_slide_velocity += slope_gravity * slide_slope_boost * alignment * delta
 
 	# Friction
 	_slide_velocity = _slide_velocity.move_toward(Vector3.ZERO, slide_friction * delta)
@@ -132,15 +141,12 @@ func _handle_slide_physics(delta: float) -> void:
 	self.velocity.x = _slide_velocity.x
 	self.velocity.z = _slide_velocity.z
 
-	# Exit conditions
-	if _slide_timer <= 0.0:
-		_exit_slide()
-	elif _slide_velocity.length() < slide_min_speed:
+	if _slide_timer <= 0.0 or _slide_velocity.length() < slide_min_speed:
 		_exit_slide()
 
 func _exit_slide() -> void:
-	velocity.x = _slide_velocity.x
-	velocity.z = _slide_velocity.z
+	self.velocity.x = _slide_velocity.x
+	self.velocity.z = _slide_velocity.z
 
 	if wants_crouch:
 		move_state = MoveState.CROUCH
@@ -174,13 +180,14 @@ func _physics_process(delta: float) -> void:
 			_handle_air_physics(delta)
 	
 	move_and_slide()
+	_lock_ground = false
 
 func _process(_delta: float) -> void:
 	_debug()
 
 func _update_move_state() -> void:
 	# AIR overrides locomotion, not posture
-	if not is_on_floor():
+	if not is_on_floor() and not _lock_ground:
 		if move_state != MoveState.AIR:
 			previous_ground_state = move_state
 		move_state = MoveState.AIR
@@ -198,6 +205,8 @@ func _update_move_state() -> void:
 		var sprint_jump_to_slide = move_state == MoveState.AIR and previous_ground_state == MoveState.SPRINT
 		if move_state == MoveState.SPRINT or sprint_jump_to_slide:
 			_enter_slide()
+			return
+		if move_state == MoveState.SLIDE:
 			return
 		if move_state != MoveState.CROUCH:
 			previous_ground_state = move_state
@@ -232,7 +241,8 @@ func _handle_jump() -> void:
 func _enter_slide() -> void:
 	move_state = MoveState.SLIDE
 	_slide_timer = slide_duration
-
+	_lock_ground = true
+	
 	var horizontal := Vector3(velocity.x, 0, velocity.z)
 	var dir := horizontal.normalized()
 	if dir.length() < 0.1:
@@ -253,11 +263,14 @@ func _update_crouch_visuals(delta: float) -> void:
 	var final_height: float = min(desired_height, max_allowed_height)
 
 	# Smooth capsule resize
-	shape.height = lerp(
-		shape.height,
-		final_height,
-		delta * crouch_transition_speed
-	)
+	var old_height := shape.height
+	var new_height: float = lerp(old_height, final_height, delta * crouch_transition_speed)
+	shape.height = new_height
+
+	var height_delta := old_height - new_height
+	if abs(height_delta) > 0.001:
+		# Keep feet planted
+		global_position.y -= height_delta * 0.5
 
 	# Camera height derived from ACTUAL capsule height
 	var target_eye_y := _get_eye_height_for_capsule(shape.height)
