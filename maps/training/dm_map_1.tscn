@@ -550,9 +550,9 @@ size = Vector3(3.9725342, 2.0019913, 1.4708226)
 material = SubResource("StandardMaterial3D_1elcr")
 
 [node name="ProtoCSGBox3D5" parent="Map/ProtoCSGBox3D17" instance=ExtResource("4_ovcgl")]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -0.0505566, 1.0298147, 1.4104977)
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -0.05055684, 0.896914, 1.4104977)
 operation = 2
-size = Vector3(2.9837341, 1.9740086, 1.4708226)
+size = Vector3(2.9837341, 1.7082074, 1.4708226)
 material = SubResource("StandardMaterial3D_6jn82")
 
 [node name="ProtoCSGBox3D7" parent="Map" instance=ExtResource("4_ovcgl")]

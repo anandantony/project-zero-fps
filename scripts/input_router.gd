@@ -1,11 +1,13 @@
 extends Node
 
 enum SprintMode { HOLD, TOGGLE }
+enum CrouchMode { HOLD, TOGGLE }
 
 # Public state
 var move := Vector2.ZERO
 var look := Vector2.ZERO
 var sprint := false
+var crouch := false
 
 @export var look_deadzone := 0.05
 @export var mouse_sensitivity := 0.006
@@ -13,10 +15,13 @@ var sprint := false
 @export var jump_buffer_time := 0.12      # seconds
 @export var sprint_mode_keyboard := SprintMode.HOLD
 @export var sprint_mode_gamepad := SprintMode.TOGGLE
+@export var crouch_mode_keyboard := CrouchMode.HOLD
+@export var crouch_mode_gamepad := CrouchMode.HOLD
 
 # Private state
 var _jump_buffer := 0.0
 var _sprint_toggled := false
+var _crouch_toggled := false
 var _last_input_was_gamepad := false
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -31,6 +36,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		_on_sprint_pressed()
 	elif event.is_action_released("sprint"):
 		_on_sprint_released()
+	
+	# Crouch handling
+	if event.is_action_pressed("crouch"):
+		_on_crouch_pressed()
+	elif event.is_action_released("crouch"):
+		_on_crouch_released()
 
 func _process(delta: float) -> void:
 	# Movement
@@ -67,13 +78,27 @@ func _on_sprint_pressed() -> void:
 			_sprint_toggled = !_sprint_toggled
 			sprint = _sprint_toggled
 
-
 func _on_sprint_released() -> void:
 	if _get_active_sprint_mode() == SprintMode.HOLD:
 		sprint = false
 
+func _on_crouch_pressed() -> void:
+	match _get_active_crouch_mode():
+		CrouchMode.HOLD:
+			crouch = true
+		CrouchMode.TOGGLE:
+			_crouch_toggled = !_crouch_toggled
+			crouch = _crouch_toggled
+
+func _on_crouch_released() -> void:
+	if _get_active_crouch_mode() == CrouchMode.HOLD:
+		crouch = false
+
 func _get_active_sprint_mode() -> SprintMode:
 	return sprint_mode_gamepad if _last_input_was_gamepad else sprint_mode_keyboard
+
+func _get_active_crouch_mode() -> CrouchMode:
+	return crouch_mode_gamepad if _last_input_was_gamepad else crouch_mode_keyboard
 
 func is_mouse_locked() -> bool:
 	return Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
@@ -98,3 +123,15 @@ func _is_gamepad() -> bool:
 func reset_sprint() -> void:
 	_sprint_toggled = false
 	sprint = false
+
+func reset_crouch() -> void:
+	_crouch_toggled = false
+	crouch = false
+
+func force_crouch() -> void:
+	_crouch_toggled = true
+	crouch = true
+
+func on_crouch_started() -> void:
+	if _get_active_sprint_mode() == SprintMode.TOGGLE:
+		reset_sprint()

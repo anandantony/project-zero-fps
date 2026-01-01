@@ -4,6 +4,7 @@ extends CharacterBody3D
 enum MoveState {
 	GROUND,
 	SPRINT,
+	CROUCH,
 	AIR
 }
 
@@ -15,6 +16,13 @@ enum MoveState {
 @export var jump_velocity := 7.0
 @export var coyote_time := 0.12   # seconds
 
+@export_group("Crouch Movement")
+@export var crouch_speed := 3.0
+@export var crouch_height := 1.2
+@export var stand_height := 1.8
+@export var crouch_camera_offset := -0.6
+@export var crouch_transition_speed := 10.0
+
 # Layer Mask Refs
 const DEFAULT_LAYER = 1
 const VIEW_MODEL_LAYER = 2
@@ -23,7 +31,9 @@ const VIEW_MODEL_LAYER = 2
 @onready var view_model: Node3D = %WorldModel
 @onready var camera: Camera3D = %PlayerCamera
 @onready var head_anchor: Marker3D = %HeadAnchor
+@onready var collider: CollisionShape3D = %Collider
 @onready var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8) * 1.75
+@onready var _eye_height_local := head_anchor.position.y
 
 # Debug
 @onready var debug_label: Label = %DebugLabel
@@ -107,23 +117,42 @@ func _physics_process(delta: float) -> void:
 			_handle_ground_movement(delta, walk_speed)
 		MoveState.SPRINT:
 			_handle_ground_movement(delta, sprint_speed)
+		MoveState.CROUCH:
+			_handle_ground_movement(delta, crouch_speed)
 		MoveState.AIR:
 			_handle_air_physics(delta)
 	
 	move_and_slide()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_update_crouch_visuals(delta)
 	_debug()
 
 func _update_move_state() -> void:
-	# AIR overrides everything
+	# 1. AIR overrides everything
 	if not is_on_floor():
 		if move_state != MoveState.AIR:
 			previous_ground_state = move_state
 		move_state = MoveState.AIR
 		return
 
-	# Determine desired grounded state
+	# 2. Handle crouch input (grounded only)
+	if InputRouter.crouch:
+		if move_state != MoveState.CROUCH:
+			previous_ground_state = move_state
+			InputRouter.on_crouch_started()
+		move_state = MoveState.CROUCH
+		return
+
+	# 3. Attempt to stand up from crouch
+	if move_state == MoveState.CROUCH and not InputRouter.crouch:
+		if not _can_stand():
+			# Forced crouch due to ceiling
+			move_state = MoveState.CROUCH
+			return
+		# Can stand → continue to evaluate next state
+
+	# 4. Determine desired grounded state
 	var next_ground_state: MoveState
 
 	if InputRouter.sprint and _move_input_world.length() > 0.1:
@@ -131,7 +160,7 @@ func _update_move_state() -> void:
 	else:
 		next_ground_state = MoveState.GROUND
 
-	# Update previous_ground_state ONLY when grounded state changes
+	# 5. Track previous grounded state changes
 	if move_state != MoveState.AIR and move_state != next_ground_state:
 		previous_ground_state = move_state
 
@@ -153,6 +182,43 @@ func _handle_jump() -> void:
 	_air_speed_cap = Vector3(self.velocity.x, 0, self.velocity.z).length()
 	_coyote_timer = 0.0
 	InputRouter.consume_jump()
+
+func _update_crouch_visuals(delta: float) -> void:
+	var shape := collider.shape as CapsuleShape3D
+
+	var target_height := stand_height
+	var target_camera_y := _eye_height_local
+
+	if move_state == MoveState.CROUCH:
+		target_height = crouch_height
+		target_camera_y = _eye_height_local + crouch_camera_offset
+
+	shape.height = lerp(
+		shape.height,
+		target_height,
+		delta * crouch_transition_speed
+	)
+
+	var cam_pos := head_anchor.position
+	cam_pos.y = lerp(
+		cam_pos.y,
+		target_camera_y,
+		delta * crouch_transition_speed
+	)
+	head_anchor.position = cam_pos
+
+func _can_stand() -> bool:
+	var shape := collider.shape as CapsuleShape3D
+	var original_height := shape.height
+
+	shape.height = stand_height
+	var can_stand := not test_move(
+		global_transform,
+		Vector3.UP * (stand_height - shape.height)
+	)
+	shape.height = original_height
+
+	return can_stand
 
 #debug
 func _debug() -> void:
