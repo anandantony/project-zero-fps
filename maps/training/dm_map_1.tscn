@@ -1,4 +1,4 @@
-[gd_scene load_steps=54 format=3 uid="uid://bqe68omr6d178"]
+[gd_scene load_steps=56 format=3 uid="uid://bqe68omr6d178"]
 
 [ext_resource type="PackedScene" uid="uid://d2jp3gvr7q6mr" path="res://prefabs/gameplay/spawn_point.tscn" id="2_0wc5l"]
 [ext_resource type="Environment" uid="uid://cf7wtccr7s4f7" path="res://prefabs/world_env.tres" id="2_mxuqf"]
@@ -6,7 +6,9 @@
 [ext_resource type="PackedScene" uid="uid://dxw7cledbpiia" path="res://addons/proto-csgs/proto_csg_box_3d.tscn" id="4_ovcgl"]
 [ext_resource type="Texture2D" uid="uid://cej3yoosomfd2" path="res://addons/proto-csgs/textures/dark/texture_13.png" id="5_s3t84"]
 [ext_resource type="Texture2D" uid="uid://c0x0tvmbhaqck" path="res://addons/proto-csgs/textures/orange/texture_13.png" id="6_s3t84"]
+[ext_resource type="PackedScene" uid="uid://hcs1k41pp446" path="res://addons/proto-csgs/proto_csg_polygon_3d.tscn" id="8_j0u80"]
 [ext_resource type="Texture2D" uid="uid://cqrn57fm270ne" path="res://addons/proto-csgs/textures/green/texture_03.png" id="8_w8gs6"]
+[ext_resource type="Texture2D" uid="uid://cd3fcinti1un5" path="res://addons/proto-csgs/textures/dark/texture_01.png" id="9_xs22q"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mxuqf"]
 resource_local_to_scene = true
@@ -250,7 +252,7 @@ uv1_triplanar = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6jn82"]
 resource_local_to_scene = true
-albedo_texture = ExtResource("5_s3t84")
+albedo_texture = ExtResource("9_xs22q")
 uv1_offset = Vector3(0.5, 0.5, 0.5)
 uv1_triplanar = true
 
@@ -549,10 +551,10 @@ operation = 2
 size = Vector3(3.9725342, 2.0019913, 1.4708226)
 material = SubResource("StandardMaterial3D_1elcr")
 
-[node name="ProtoCSGBox3D5" parent="Map/ProtoCSGBox3D17" instance=ExtResource("4_ovcgl")]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -0.05055684, 0.896914, 1.4104977)
+[node name="ProtoCSGPolygon3D" parent="Map/ProtoCSGBox3D17" instance=ExtResource("8_j0u80")]
+transform = Transform3D(-4.371139e-08, 0, -1.5636098, 0, 1, 0, 1, 0, -6.834755e-08, -0.76255476, 0.51386356, -0.025918968)
 operation = 2
-size = Vector3(2.9837341, 1.7082074, 1.4708226)
+polygon = PackedVector2Array(-0.39128494, -0.48516512, -0.2671013, 1.2875285, 4.1696606, 0.6931834, 4.2000003, -0.4)
 material = SubResource("StandardMaterial3D_6jn82")
 
 [node name="ProtoCSGBox3D7" parent="Map" instance=ExtResource("4_ovcgl")]

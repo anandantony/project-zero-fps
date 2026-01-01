@@ -16,7 +16,7 @@ var crouch := false
 @export var sprint_mode_keyboard := SprintMode.HOLD
 @export var sprint_mode_gamepad := SprintMode.TOGGLE
 @export var crouch_mode_keyboard := CrouchMode.HOLD
-@export var crouch_mode_gamepad := CrouchMode.HOLD
+@export var crouch_mode_gamepad := CrouchMode.TOGGLE
 
 # Private state
 var _jump_buffer := 0.0
@@ -127,6 +127,10 @@ func reset_sprint() -> void:
 func reset_crouch() -> void:
 	_crouch_toggled = false
 	crouch = false
+
+func reset_crouch_if_toggled() -> void:
+	if _crouch_toggled:
+		reset_crouch()
 
 func force_crouch() -> void:
 	_crouch_toggled = true

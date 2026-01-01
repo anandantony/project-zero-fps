@@ -9,7 +9,7 @@ enum MoveState {
 }
 
 @export_group("Movement")
-@export var minimum_air_control_speed := 3.0
+@export var minimum_air_control_speed := 2.0
 @export var walk_speed := 6.0
 @export var sprint_speed := 8.5
 @export var sprint_strafe_multiplier := 0.85
@@ -20,6 +20,7 @@ enum MoveState {
 @export var crouch_speed := 3.0
 @export var crouch_height := 1.2
 @export var stand_height := 1.8
+@export var eye_height_stand := 1.8
 @export var crouch_camera_offset := -0.6
 @export var crouch_transition_speed := 10.0
 
@@ -41,6 +42,7 @@ const VIEW_MODEL_LAYER = 2
 # states
 var move_state: MoveState = MoveState.GROUND
 var previous_ground_state: MoveState = MoveState.GROUND
+var wants_crouch := false
 
 var _coyote_timer := 0.0
 var _move_input_world := Vector3.ZERO
@@ -111,7 +113,8 @@ func _physics_process(delta: float) -> void:
 	_handle_move_input()
 	_update_move_state()
 	_update_coyote_timer(delta)
-	
+	_update_crouch_visuals(delta)
+
 	match move_state:
 		MoveState.GROUND:
 			_handle_ground_movement(delta, walk_speed)
@@ -124,47 +127,29 @@ func _physics_process(delta: float) -> void:
 	
 	move_and_slide()
 
-func _process(delta: float) -> void:
-	_update_crouch_visuals(delta)
+func _process(_delta: float) -> void:
 	_debug()
 
 func _update_move_state() -> void:
-	# 1. AIR overrides everything
+	# AIR overrides locomotion, not posture
 	if not is_on_floor():
 		if move_state != MoveState.AIR:
 			previous_ground_state = move_state
 		move_state = MoveState.AIR
 		return
 
-	# 2. Handle crouch input (grounded only)
-	if InputRouter.crouch:
+	# Grounded states
+	if wants_crouch:
 		if move_state != MoveState.CROUCH:
 			previous_ground_state = move_state
 			InputRouter.on_crouch_started()
 		move_state = MoveState.CROUCH
 		return
 
-	# 3. Attempt to stand up from crouch
-	if move_state == MoveState.CROUCH and not InputRouter.crouch:
-		if not _can_stand():
-			# Forced crouch due to ceiling
-			move_state = MoveState.CROUCH
-			return
-		# Can stand → continue to evaluate next state
-
-	# 4. Determine desired grounded state
-	var next_ground_state: MoveState
-
 	if InputRouter.sprint and _move_input_world.length() > 0.1:
-		next_ground_state = MoveState.SPRINT
+		move_state = MoveState.SPRINT
 	else:
-		next_ground_state = MoveState.GROUND
-
-	# 5. Track previous grounded state changes
-	if move_state != MoveState.AIR and move_state != next_ground_state:
-		previous_ground_state = move_state
-
-	move_state = next_ground_state
+		move_state = MoveState.GROUND
 
 func _update_coyote_timer(delta: float) -> void:
 	if move_state == MoveState.AIR:
@@ -175,50 +160,81 @@ func _update_coyote_timer(delta: float) -> void:
 func _handle_move_input() -> void:
 	var input_dir = InputRouter.move
 	_move_input_world = self.global_transform.basis * Vector3(input_dir.x, 0.0, -input_dir.y)
+	wants_crouch = InputRouter.crouch
 
 func _handle_jump() -> void:
 	previous_ground_state = move_state # capture intent
 	self.velocity.y = jump_velocity
 	_air_speed_cap = Vector3(self.velocity.x, 0, self.velocity.z).length()
 	_coyote_timer = 0.0
+	InputRouter.reset_crouch_if_toggled()
 	InputRouter.consume_jump()
 
 func _update_crouch_visuals(delta: float) -> void:
 	var shape := collider.shape as CapsuleShape3D
 
-	var target_height := stand_height
-	var target_camera_y := _eye_height_local
+	# Desired capsule height (intent)
+	var desired_height := stand_height
+	if wants_crouch:
+		desired_height = crouch_height
 
-	if move_state == MoveState.CROUCH:
-		target_height = crouch_height
-		target_camera_y = _eye_height_local + crouch_camera_offset
+	# Clamp based on ceiling
+	var max_allowed_height := _get_max_stand_height()
+	var final_height: float = min(desired_height, max_allowed_height)
 
+	# Smooth capsule resize
 	shape.height = lerp(
 		shape.height,
-		target_height,
+		final_height,
 		delta * crouch_transition_speed
 	)
+
+	# Camera height derived from ACTUAL capsule height
+	var target_eye_y := _get_eye_height_for_capsule(shape.height)
 
 	var cam_pos := head_anchor.position
 	cam_pos.y = lerp(
 		cam_pos.y,
-		target_camera_y,
+		target_eye_y,
 		delta * crouch_transition_speed
 	)
 	head_anchor.position = cam_pos
 
-func _can_stand() -> bool:
+func _get_max_stand_height() -> float:
 	var shape := collider.shape as CapsuleShape3D
 	var original_height := shape.height
 
+	# Try full stand first
 	shape.height = stand_height
-	var can_stand := not test_move(
-		global_transform,
-		Vector3.UP * (stand_height - shape.height)
-	)
-	shape.height = original_height
+	if not test_move(global_transform, Vector3.UP * 0.01):
+		shape.height = original_height
+		return stand_height
 
-	return can_stand
+	# Binary search for max safe height
+	var low := crouch_height
+	var high := stand_height
+	var best := low
+
+	for i in 5:
+		var mid := (low + high) * 0.5
+		shape.height = mid
+
+		if test_move(global_transform, Vector3.UP * 0.01):
+			high = mid
+		else:
+			best = mid
+			low = mid
+
+	shape.height = original_height
+	return best
+
+func _get_eye_height_for_capsule(capsule_height: float) -> float:
+	var t := inverse_lerp(crouch_height, stand_height, capsule_height)
+	return lerp(
+		_eye_height_local + crouch_camera_offset,
+		_eye_height_local,
+		t
+	)
 
 #debug
 func _debug() -> void:
