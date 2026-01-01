@@ -1,6 +1,12 @@
 class_name PlayerCharacter
 extends CharacterBody3D
 
+enum MoveState {
+	GROUND,
+	SPRINT,
+	AIR
+}
+
 @export_group("Movement")
 @export var minimum_air_control_speed := 3.0
 @export var walk_speed := 6.0
@@ -19,6 +25,13 @@ const VIEW_MODEL_LAYER = 2
 @onready var head_anchor: Marker3D = %HeadAnchor
 @onready var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8) * 1.75
 
+# Debug
+@onready var debug_label: Label = %DebugLabel
+
+# states
+var move_state: MoveState = MoveState.GROUND
+var previous_ground_state: MoveState = MoveState.GROUND
+
 var _coyote_timer := 0.0
 var _wish_direction := Vector3.ZERO
 var _air_speed_cap := 0.0
@@ -36,7 +49,7 @@ func _ready() -> void:
 func _handle_air_physics(delta: float) -> void:
 	self.velocity.y -= gravity * delta
 	
-	var horizontal := Vector3(velocity.x, 0, velocity.z)
+	var horizontal := Vector3(self.velocity.x, 0, self.velocity.z)
 	
 	# Direction only (no speed)
 	var dir := _wish_direction.normalized()
@@ -49,55 +62,107 @@ func _handle_air_physics(delta: float) -> void:
 	self.velocity.x = horizontal.x
 	self.velocity.z = horizontal.z
 
-func _handle_ground_physics(delta: float) -> void:
+func _handle_ground_physics(delta: float, move_speed: float) -> void:
 	if _wish_direction.length() == 0:
-		velocity.x = lerp(velocity.x, 0.0, delta * 7.0)
-		velocity.z = lerp(velocity.z, 0.0, delta * 7.0)
+		self.velocity.x = lerp(self.velocity.x, 0.0, delta * 7.0)
+		self.velocity.z = lerp(self.velocity.z, 0.0, delta * 7.0)
 		return
 
 	var _basis := global_transform.basis
-
 	var forward := -_basis.z
 	var right := _basis.x
 
 	var forward_amount := _wish_direction.dot(forward)
 	var strafe_amount := _wish_direction.dot(right)
 
-	var max_forward := get_move_speed()
-	var max_strafe := get_move_speed()
+	var max_forward := move_speed
+	var max_strafe := move_speed
 
-	if InputRouter.sprint:
+	if move_state == MoveState.SPRINT:
 		max_strafe *= sprint_strafe_multiplier
 		if forward_amount < 0.1:
 			max_forward *= sprint_strafe_multiplier
 
 	var desired := forward * forward_amount * max_forward + right * strafe_amount * max_strafe
+
 	self.velocity.x = desired.x
 	self.velocity.z = desired.z
 
+func _handle_ground_movement(delta: float, move_speed: float) -> void:
+	_coyote_timer = coyote_time
+
+	if InputRouter.wants_to_jump() and _coyote_timer > 0.0:
+		_handle_jump()
+		return
+
+	_handle_ground_physics(delta, move_speed)
+
+
 func _physics_process(delta: float) -> void:
-	_handle_move()
+	_handle_move_input()
+	_update_move_state()
 	
-	if is_on_floor():
-		_coyote_timer = coyote_time
-		if InputRouter.wants_to_jump() and _coyote_timer > 0.0:
-			_handle_jump()
-		_handle_ground_physics(delta)
-	else:
-		_coyote_timer -= delta
-		_handle_air_physics(delta)
+	match move_state:
+		MoveState.GROUND:
+			_handle_ground_movement(delta, walk_speed)
+		MoveState.SPRINT:
+			_handle_ground_movement(delta, sprint_speed)
+		MoveState.AIR:
+			_coyote_timer -= delta
+			_handle_air_physics(delta)
 	
 	move_and_slide()
 
-func _handle_move() -> void:
+func _process(_delta: float) -> void:
+	_debug()
+
+func _update_move_state() -> void:
+	# AIR overrides everything
+	if not is_on_floor():
+		if move_state != MoveState.AIR:
+			previous_ground_state = move_state
+		move_state = MoveState.AIR
+		return
+
+	# Determine desired grounded state
+	var next_ground_state: MoveState
+
+	if InputRouter.sprint and _wish_direction.length() > 0.1:
+		next_ground_state = MoveState.SPRINT
+	else:
+		next_ground_state = MoveState.GROUND
+
+	# Update previous_ground_state ONLY when grounded state changes
+	if move_state != MoveState.AIR and move_state != next_ground_state:
+		previous_ground_state = move_state
+
+	move_state = next_ground_state
+
+
+func _handle_move_input() -> void:
 	var input_dir = InputRouter.move
 	_wish_direction = self.global_transform.basis * Vector3(input_dir.x, 0.0, -input_dir.y)
 
 func _handle_jump() -> void:
+	previous_ground_state = move_state  # capture intent
 	self.velocity.y = jump_velocity
-	_air_speed_cap = Vector3(velocity.x, 0, velocity.z).length()
-	_coyote_timer = 0.0
+	_enter_air_state()
 	InputRouter.consume_jump()
 
-func get_move_speed() -> float:
-	return sprint_speed if InputRouter.sprint else walk_speed
+
+func _enter_air_state() -> void:
+	move_state = MoveState.AIR
+	_air_speed_cap = Vector3(self.velocity.x, 0, self.velocity.z).length()
+	_coyote_timer = 0.0
+
+#debug
+func _debug() -> void:
+	debug_label.text = "
+		state: %s
+		prev_ground: %s
+		on_floor: %s
+	" % [
+		MoveState.keys()[move_state],
+		MoveState.keys()[previous_ground_state],
+		is_on_floor()
+	]

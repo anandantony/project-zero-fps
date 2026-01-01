@@ -59,7 +59,7 @@ Tips:
 
 ## Project structure 🔍
 
-- `addons/` — third-party or custom editor tools (includes `proto-csgs`)
+- `addons/` — third-party or custom editor tools
 - `assets/` — static content used in scenes
 - `maps/` — example levels (e.g., `training/dm_map_1.tscn`)
 - `prefabs/` — reusable scene assets (spawn points, world env, characters)
@@ -80,7 +80,7 @@ Contributions are welcome! Please:
 
 This project is available under the terms of the repository `LICENSE` file.
 
-- `proto-csgs` addon included under its own `LICENSE.txt` (see `addons/proto-csgs/`)
+- `proto-csgs` addon by Manonox included under its own `LICENSE.txt` (see `addons/proto-csgs/`)
 
 ---
 
