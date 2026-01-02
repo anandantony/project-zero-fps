@@ -203,12 +203,14 @@ func _physics_process(delta: float) -> void:
 	_update_coyote_timer(delta)
 	_update_ceiling_cache(delta)
 	_update_crouch_visuals(delta)
-
+	
+	var forced_crouch := _is_physically_crouched()
+	
 	match move_state:
 		MoveState.GROUND:
-			_handle_ground_movement(delta, walk_speed)
+			_handle_ground_movement(delta, crouch_speed if forced_crouch else walk_speed)
 		MoveState.SPRINT:
-			_handle_ground_movement(delta, sprint_speed)
+			_handle_ground_movement(delta, crouch_speed if forced_crouch else sprint_speed)
 		MoveState.SLIDE:
 			_handle_slide_physics(delta)
 		MoveState.CROUCH:
@@ -432,6 +434,9 @@ func _raycast_ceiling_height() -> float:
 
 func _is_grounded() -> bool:
 	return is_on_floor() or ground_check.is_colliding()
+
+func _is_physically_crouched() -> bool:
+	return _cached_max_height < stand_height - HEIGHT_EPSILON
 
 #debug
 func _debug() -> void:
