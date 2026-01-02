@@ -34,7 +34,7 @@ const SLIDE_GROUND_GRACE := 0.12
 @export var stand_height := 1.8
 @export var eye_height_stand := 1.8
 @export var crouch_camera_offset := -0.6
-@export var crouch_transition_speed := 10.0
+@export var crouch_transition_speed := 15.0
 
 @export_group("Slide", "slide")
 @export var slide_start_speed := 10.0
@@ -57,7 +57,7 @@ const VIEW_MODEL_LAYER = 2
 @onready var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8) * 1.75
 @onready var _eye_height_local := head_anchor.position.y
 @onready var ground_check: RayCast3D = $GroundCheck
-@onready var _max_slide_dot := cos(deg_to_rad(slide_max_angle))
+@onready var slide_ray: RayCast3D = %SlideRay
 
 # Debug
 @onready var debug_label: Label = %DebugLabel
@@ -240,7 +240,14 @@ func _update_move_state() -> void:
 	
 	# Grounded states
 	if wants_crouch:
-		if move_state == MoveState.SPRINT and _can_slide_on_floor():
+		var wants_slide = (
+			move_state == MoveState.SPRINT
+			or (
+				move_state == MoveState.AIR
+				and previous_ground_state == MoveState.SPRINT
+			) 
+		)
+		if wants_slide and _can_slide_on_floor():
 			_enter_slide()
 			return
 
@@ -275,13 +282,21 @@ func _handle_jump() -> void:
 	InputRouter.reset_crouch_if_toggled()
 	InputRouter.consume_jump()
 
-# make it forward raycast based
 func _can_slide_on_floor() -> bool:
 	if not _is_grounded():
 		return false
 
-	var n := get_floor_normal()
-	return n.dot(Vector3.UP) >= _max_slide_dot
+	if not slide_ray.is_colliding():
+		return false
+
+	var n := slide_ray.get_collision_normal()
+	var dot := n.dot(Vector3.UP)
+
+	# Reject walls / cliffs
+	if dot < 0.2:
+		return false
+
+	return true
 
 func _enter_slide() -> void:
 	previous_ground_state = MoveState.SPRINT
