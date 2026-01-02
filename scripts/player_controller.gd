@@ -18,7 +18,7 @@ const CEILING_RAY_OFFSETS := [
 ]
 const HEIGHT_EPSILON := 0.03
 const CEILING_CACHE_TIME := 0.1
-const SLIDE_GROUND_GRACE := 0.12
+const SLIDE_GROUND_GRACE := 0.2
 
 @export_group("Movement")
 @export var minimum_air_control_speed := 2.0
